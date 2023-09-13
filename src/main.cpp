@@ -1,57 +1,20 @@
 #include "pch.h"
 
-#include "clock/Clock.h"
-#include "Compressor.h"
-#include "DataUtils.h"
+#include "Utils.h"
 
-const size_t ARRAY_SIZE = 1000000;
+#include "cuda/CudaUtils.h"
+
+const size_t ARRAY_SIZE = 100;
+const unsigned MIN_UNIQUE = 10;
+const unsigned MAX_UNIQUE = 50;
 
 int main() {
-    std::srand(static_cast<unsigned int>(std::time(nullptr)));
-
     // Init random source array.
-    auto srcArray = ai::utils::CreateAnArray(ARRAY_SIZE);
+    auto srcArray = ai::utils::GenerateArray(ARRAY_SIZE, MIN_UNIQUE, MAX_UNIQUE);
+    ai::utils::PrintArray("Source array", srcArray, 10);
 
-
-    // Real test (and example) for compressing and uncompressing.
-    std::vector<uint8_t> compressed;
-    std::vector<int> decompressedArray;
-
-    {   
-        ai::Clock clock;
-        {
-            auto startCompressTime = clock.Now();
-
-            ai::Compressor compressor(ai::eCompressorType::Compressor);
-            compressed = compressor.Compress(srcArray);
-
-            std::cout << "Compressing duration: ";
-            clock.PrintDurationFrom(startCompressTime);
-        }
-
-        {
-            auto startDecompressTime = clock.Now();
-
-            ai::Compressor uncompressor(ai::eCompressorType::Uncompressor);
-            decompressedArray = uncompressor.Uncompress(compressed);
-
-            std::cout << "Decompressing duration: ";
-            clock.PrintDurationFrom(startDecompressTime);
-            std::cout << "\n";
-        }
-    }
-
-
-
-    // Benchmarking: 
-    std::cout << "Source array size: " << sizeof(int) * srcArray.size() << std::endl;
-    std::cout << "Compressed size: " << sizeof(uint8_t) * compressed.size() << "\n\n";
-
-    ai::utils::PrintArray("Source array", srcArray);
-
-    ai::utils::PrintArray("Compressed array", compressed);
-
-    ai::utils::PrintArray("Uncompressed array", decompressedArray);
+    auto uniques = ai::cuda::FindUniquesGPU(srcArray);
+    ai::utils::PrintArray("Uniques", uniques, 2);
 
     std::cin.get();
     return 0;

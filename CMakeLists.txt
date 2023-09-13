@@ -21,7 +21,7 @@ endif()
 
 # CUDA
 set(CUDA_FILES
-    src/cuda/CudaCalculator.cu
+    src/cuda/CudaUtils.cu
 )
 include_directories(${CUDA_INCLUDE_DIRS})
 
@@ -29,6 +29,7 @@ include_directories(${CUDA_INCLUDE_DIRS})
 include_directories(src)
 set(CPP_FILES
     src/main.cpp
+    src/Utils.cpp
     src/clock/Clock.cpp
     src/threads/ThreadPool.cpp
 )

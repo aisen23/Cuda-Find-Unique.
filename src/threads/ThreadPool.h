@@ -13,7 +13,7 @@ namespace ai
     class ThreadPool
     {
     public:
-        explicit ThreadPool(size_t numThreads);
+        static ThreadPool& Instance();
         ~ThreadPool();
 
         template <typename Function, typename... Args>
@@ -37,6 +37,9 @@ namespace ai
             _tasksCond.notify_one();
             return result;
         }
+
+    private:
+        ThreadPool();
 
     private:
         std::vector<std::thread> _workers;

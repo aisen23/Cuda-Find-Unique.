@@ -2,12 +2,23 @@
 
 #include "ThreadPool.h"
 
-ai::ThreadPool::ThreadPool(size_t numThreads)
+ai::ThreadPool& ai::ThreadPool::Instance()
 {
+    static ThreadPool instance;
+    return instance;
+}
+
+ai::ThreadPool::ThreadPool()
+{
+    int numThreads = std::thread::hardware_concurrency();
+    if (numThreads < 4) {
+        numThreads = 8;
+    }
+
     for (size_t i = 0; i < numThreads; ++i) {
         _workers.emplace_back([this] {
             while (true) {
-                std::packaged_task<void()> task;
+                std::function<void()> task;
 
                 {
                     std::unique_lock lock(_tasksMutex);
