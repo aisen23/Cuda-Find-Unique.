@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include "clock/Clock.h"
 #include "CudaUtils.h"
 #include "Utils.h"
 
@@ -32,17 +33,23 @@ namespace ai::cuda
 
         std::vector<int32_t> result(size);
 
+        Clock clock;
+        auto mallocMemcpy = clock.Now();
         cudaMalloc(&deviceData, size * sizeof(int32_t));
         cudaMemcpy(deviceData, src.data(), size * sizeof(int32_t), cudaMemcpyHostToDevice);
+        std::cout << "MallocMemcpy: "; clock.PrintDurationFrom(mallocMemcpy);
         
         int totalThreads = size;
         int numThreads = 320;
 
+        auto cudaComp = clock.Now();
         FindUniquesKernel<<<(totalThreads + numThreads - 1) / numThreads, numThreads>>>(deviceData, size);
+        std::cout << "CudaComputation: "; clock.PrintDurationFrom(cudaComp);
 
+        auto memcpyFree = clock.Now();
         cudaMemcpy(result.data(), deviceData, size * sizeof(int32_t), cudaMemcpyDeviceToHost);
-
         cudaFree(deviceData);
+        std::cout << "CudaMemcpyFree: "; clock.PrintDurationFrom(memcpyFree);
 
         return result;
     }

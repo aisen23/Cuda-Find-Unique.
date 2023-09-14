@@ -22,7 +22,7 @@ int main() {
 
     auto srcArray = ai::utils::GenerateArray(ARRAY_SIZE, MIN_UNIQUE, MAX_UNIQUE);
     
-    clock.PrintDurationFrom(arrayGenStart);
+    std::cout << "Generating: "; clock.PrintDurationFrom(arrayGenStart);
     ai::utils::PrintArray("Source array", srcArray, 10);
 
 
@@ -32,7 +32,7 @@ int main() {
 
     auto uniques = ai::cuda::FindUniquesGPU(srcArray, MAX_UNIQUE);
 
-    clock.PrintDurationFrom(searchUniquesStart);
+    std::cout << "Computation Uniques: "; clock.PrintDurationFrom(searchUniquesStart);
     ai::utils::PrintArray("Uniques", uniques, 10);
 
 
