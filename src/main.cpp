@@ -11,9 +11,12 @@ const unsigned MAX_UNIQUE = 1000;
 
 int main() {
     // Init random source array.
-    Clock clock;
+    ai::Clock clock;
 
 //+_+_+_-=-=- =- Array generation  =- =- == = -=- =- =- =- 
+
+    std::cout << "int32_t MIN: " << std::numeric_limits<int32_t>::min() << std::endl;
+    std::cout << "int32_t MAX: " << std::numeric_limits<int32_t>::max() << std::endl;
 
     auto arrayGenStart = clock.Now();
 
