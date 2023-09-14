@@ -72,7 +72,7 @@ std::pair<std::vector<int32_t>, std::unordered_set<int32_t>> ai::utils::Generate
         }
     }
 
-    return std::make_pair(uniques, uniqueSet);
+    return std::make_pair(std::move(uniques), std::move(uniqueSet));
 }
         
 std::vector<int32_t> ai::utils::GenerateNonUniques(size_t size, const std::unordered_set<int32_t>& uniqueSet) {

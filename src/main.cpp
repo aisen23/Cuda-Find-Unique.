@@ -30,10 +30,10 @@ int main() {
 
     auto searchUniquesStart = clock.Now();
 
-    auto uniques = ai::cuda::FindUniquesGPU(srcArray);
+    auto uniques = ai::cuda::FindUniquesGPU(srcArray, MAX_UNIQUE);
 
     clock.PrintDurationFrom(searchUniquesStart);
-    ai::utils::PrintArray("Uniques", uniques, 2);
+    ai::utils::PrintArray("Uniques", uniques, 10);
 
 
 // -=- =-= -=- =- =-  -= -- = -= -= -=- =- 
