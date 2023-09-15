@@ -1,14 +1,11 @@
 #include "pch.h"
 
 #include "clock/Clock.h"
+#include "Constants.h"
 #include "threads/ThreadPool.h"
 #include "Utils.h"
 
 #include "cuda/CudaUtils.h"
-
-const size_t ARRAY_SIZE = 10000000;
-const unsigned MIN_UNIQUE = 10;
-const unsigned MAX_UNIQUE = 1000;
 
 int main() {
     ai::ThreadPool::Instance();
@@ -22,7 +19,7 @@ int main() {
 
     auto arrayGenStart = clock.Now();
 
-    auto srcArray = ai::utils::GenerateArray(ARRAY_SIZE, MIN_UNIQUE, MAX_UNIQUE);
+    auto srcArray = ai::utils::GenerateArray(ai::ARRAY_SIZE, ai::MIN_UNIQUE, ai::MAX_UNIQUE);
     
     std::cout << "Generating: "; clock.PrintDuration(arrayGenStart);
     ai::utils::PrintArray("Source array", srcArray, 10);
@@ -32,7 +29,7 @@ int main() {
 
     auto searchUniquesStart = clock.Now();
 
-    auto uniques = ai::cuda::FindUniquesGPU(srcArray, MAX_UNIQUE);
+    auto uniques = ai::cuda::FindUniquesGPU(srcArray);
 
     std::cout << "Computation Uniques: "; clock.PrintDuration(searchUniquesStart);
     ai::utils::PrintArray("Uniques", uniques, 10);

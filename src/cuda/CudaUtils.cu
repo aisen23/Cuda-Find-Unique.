@@ -17,8 +17,11 @@ namespace ai::cuda
         }
     }
 
-    std::vector<int32_t> FindUniquesCPU(const std::vector<int32_t>& src, size_t uniqueSize) {
+    std::vector<int32_t> FindUniquesCPU(const std::vector<int32_t>& src) {
         std::vector<int32_t> result(src.size());
+
+        std::unordered_map<int32_t, uint32_t> counter;
+        std::unordered_set<int32_t> uniquesSet;
 
         for (int i = 0; i != src.size(); ++i) {
             result[i] = src[i] + 1;
@@ -28,7 +31,7 @@ namespace ai::cuda
     }
 
 
-    std::vector<int32_t> FindUniquesGPU(const std::vector<int32_t>& src, size_t uniqueSize) {
+    std::vector<int32_t> FindUniquesGPU(const std::vector<int32_t>& src) {
         uint32_t hostSize= src.size();
         const int32_t* hostData = src.data();
         int32_t* deviceData;

@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "Utils.h"
+#include "Constants.h"
 
 std::vector<int32_t> ai::utils::GenerateArray(size_t size, unsigned minUnique, unsigned maxUnique) {
     bool generateArrayValidArgs = 0 < minUnique && minUnique < maxUnique && maxUnique < size;
@@ -12,31 +13,28 @@ std::vector<int32_t> ai::utils::GenerateArray(size_t size, unsigned minUnique, u
     std::random_device rd;
     std::mt19937 gen(rd());
 
+    // Generate size of unique numbers array.
     std::uniform_int_distribution<unsigned> uDist(minUnique, maxUnique);
-    size_t uniqueSize = static_cast<size_t>(uDist(gen));
-
-    std::vector<int32_t> uniqueNumbers;
-    std::unordered_set<int32_t> uniqueNumbersSet;
+    size_t uSize = static_cast<size_t>(uDist(gen));
 
     // Generating numbers (unique and non-unique):
-    auto [uniques, uniqueSet] = GenerateUniques(uniqueSize);
-    auto nonUniques = GenerateNonUniques(size - uniqueSize, uniqueSet);
+    auto [uniques, uniqueSet] = GenerateUniques(uSize);
+    auto nonUniques = GenerateNonUniques(size - uSize, uniqueSet);
 
 
     // Fill array:
-    std::vector<int32_t> array_(size);
-    std::unordered_set<size_t> uniquePlaces;
+    std::vector<int32_t> array_(size, ai::INVALID_NUM);
     std::uniform_int_distribution<size_t> indexDist(0, size - 1);
-    for (auto u : uniques) {
+    for (size_t i = 0; i != uSize;) {
         auto index = indexDist(gen);
-        if (uniquePlaces.find(index) == uniquePlaces.end()) {
-            array_[index] = u;
-            uniquePlaces.insert(index);
+        if (array_[index] == ai::INVALID_NUM) {
+            array_[index] = uniques[i];
+            ++i;
         } 
     }
 
     for (size_t i = 0, j = 0; i != size && j != nonUniques.size(); ++i) {
-        if (uniquePlaces.find(i) == uniquePlaces.end()) {
+        if (array_[i] == ai::INVALID_NUM) {
             array_[i] = nonUniques[j++];
         }
     }
@@ -51,12 +49,9 @@ std::pair<std::vector<int32_t>, std::unordered_set<int32_t>> ai::utils::Generate
         return {};
     }
 
-    int32_t minInt = std::numeric_limits<int32_t>::min();
-    int32_t maxInt = std::numeric_limits<int32_t>::max();
-
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<int32_t> dist(minInt, maxInt);
+    std::uniform_int_distribution<int32_t> dist(ai::MIN_NUM, ai::MAX_NUM);
 
     std::vector<int32_t> uniques;
     uniques.reserve(size);
@@ -82,12 +77,9 @@ std::vector<int32_t> ai::utils::GenerateNonUniques(size_t size, const std::unord
         return {};
     }
 
-    int32_t minInt = std::numeric_limits<int32_t>::min();
-    int32_t maxInt = std::numeric_limits<int32_t>::max();
-
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<int32_t> dist(minInt, maxInt);
+    std::uniform_int_distribution<int32_t> dist(ai::MIN_NUM, ai::MAX_NUM);
     std::uniform_int_distribution<unsigned> partsDist(2, 4);
 
     unsigned partsCount = partsDist(gen);
