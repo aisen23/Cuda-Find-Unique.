@@ -2,6 +2,7 @@
 
 #include "clock/Clock.h"
 #include "CudaUtils.h"
+#include "threads/ThreadPool.h"
 #include "Utils.h"
 
 #include <cuda_runtime.h>
@@ -28,28 +29,49 @@ namespace ai::cuda
 
 
     std::vector<int32_t> FindUniquesGPU(const std::vector<int32_t>& src, size_t uniqueSize) {
-        uint32_t size = src.size();
+        uint32_t hostSize= src.size();
+        const int32_t* hostData = src.data();
         int32_t* deviceData;
 
-        std::vector<int32_t> result(size);
+        std::vector<int32_t> result(hostSize);
 
         Clock clock;
-        auto mallocMemcpy = clock.Now();
-        cudaMalloc(&deviceData, size * sizeof(int32_t));
-        cudaMemcpy(deviceData, src.data(), size * sizeof(int32_t), cudaMemcpyHostToDevice);
-        std::cout << "MallocMemcpy: "; clock.PrintDurationFrom(mallocMemcpy);
-        
-        int totalThreads = size;
-        int numThreads = 320;
+        auto mallocStart = clock.Now();
+        cudaMalloc(&deviceData, hostSize * sizeof(int32_t));
+        std::cout << "Malloc: "; clock.PrintDuration(mallocStart);
+
+        auto memcpyStart = clock.Now();
+        cudaMemcpy(deviceData, hostData, hostSize * sizeof(int32_t), cudaMemcpyHostToDevice);
+        std::cout << "Memcpy: "; clock.PrintDuration(memcpyStart);
+
+        /*size_t numThreads = 20;
+        size_t chunkSize = hostSize / numThreads;
+        std::vector<std::future<void>> futures(numThreads - 1);
+        for (size_t i = 0; i != numThreads - 1; ++i) {
+            futures[i] = ThreadPool::Instance().Submit([deviceData, hostData, chunkSize, i]() {
+                    auto offsettedData = deviceData + chunkSize * i;
+                    cudaMemcpy(offsettedData, hostData + chunkSize * i, chunkSize * sizeof(int32_t), cudaMemcpyHostToDevice);
+            });
+        }
+        auto offsettedData = deviceData + chunkSize * (numThreads - 1);
+        cudaMemcpy(offsettedData, hostData + chunkSize * (numThreads - 1), chunkSize * sizeof(int32_t), cudaMemcpyHostToDevice);
+
+        for (auto& f : futures) {
+            f.wait();
+        }*/
+
+        const int size = 10000000;
+        const int blockSize = 1024;
+        const int gridSize = (size + blockSize - 1) / blockSize;
 
         auto cudaComp = clock.Now();
-        FindUniquesKernel<<<(totalThreads + numThreads - 1) / numThreads, numThreads>>>(deviceData, size);
-        std::cout << "CudaComputation: "; clock.PrintDurationFrom(cudaComp);
+        FindUniquesKernel<<<gridSize, blockSize>>>(deviceData, hostSize);
+        std::cout << "CudaComputation: "; clock.PrintDuration(cudaComp);
 
         auto memcpyFree = clock.Now();
         cudaMemcpy(result.data(), deviceData, size * sizeof(int32_t), cudaMemcpyDeviceToHost);
         cudaFree(deviceData);
-        std::cout << "CudaMemcpyFree: "; clock.PrintDurationFrom(memcpyFree);
+        std::cout << "CudaMemcpyFree: "; clock.PrintDuration(memcpyFree);
 
         return result;
     }

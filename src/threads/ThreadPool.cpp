@@ -10,7 +10,7 @@ ai::ThreadPool& ai::ThreadPool::Instance()
 
 ai::ThreadPool::ThreadPool()
 {
-    int numThreads = std::thread::hardware_concurrency();
+    int numThreads = std::thread::hardware_concurrency() - 1;
     if (numThreads < 4) {
         numThreads = 8;
     }
