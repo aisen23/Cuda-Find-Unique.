@@ -67,6 +67,12 @@ std::pair<std::vector<int32_t>, std::unordered_set<int32_t>> ai::utils::Generate
         }
     }
 
+#ifdef DEBUG_BUILD
+    auto testU = uniques;
+    std::sort(testU.begin(), testU.end());
+    ai::utils::PrintArray("Generated uniques", testU, 5);
+#endif
+
     return std::make_pair(std::move(uniques), std::move(uniqueSet));
 }
         

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <ctime>
 
+#include <algorithm>
 #include <chrono>
 #include <functional>
 #include <iostream>

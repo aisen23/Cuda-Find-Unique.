@@ -32,7 +32,13 @@ int main() {
     auto uniques = ai::cuda::FindUniquesGPU(srcArray);
 
     std::cout << "Computation Uniques: "; clock.PrintDuration(searchUniquesStart);
+#ifdef DEBUG_BUILD
+    auto testU = uniques;
+    std::sort(testU.begin(), testU.end());
+    ai::utils::PrintArray("Generated uniques", testU, 5);
+#else
     ai::utils::PrintArray("Uniques", uniques, 10);
+#endif
 
 
 // -=- =-= -=- =- =-  -= -- = -= -= -=- =- 

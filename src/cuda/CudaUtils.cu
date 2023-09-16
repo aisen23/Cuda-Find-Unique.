@@ -18,13 +18,26 @@ namespace ai::cuda
     }
 
     std::vector<int32_t> FindUniquesCPU(const std::vector<int32_t>& src) {
-        std::vector<int32_t> result(src.size());
 
         std::unordered_map<int32_t, uint32_t> counter;
-        std::unordered_set<int32_t> uniquesSet;
+        std::unordered_set<int32_t> uniqueSet;
 
-        for (int i = 0; i != src.size(); ++i) {
-            result[i] = src[i] + 1;
+        for (size_t i = 0; i != src.size(); ++i) {
+            auto num = src[i];
+            int count = ++counter[num];
+
+            if (count > 1) {
+                uniqueSet.erase(num);
+            }
+            else {
+                uniqueSet.insert(num);
+            }
+        }
+
+        std::vector<int32_t> result; 
+        result.reserve(uniqueSet.size());
+        for (auto it = uniqueSet.begin(); it != uniqueSet.end(); ++it) {
+            result.push_back(*it);
         }
 
         return result;
