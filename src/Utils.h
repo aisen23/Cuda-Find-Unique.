@@ -3,7 +3,7 @@
 #include <vector>
 #include <unordered_set>
 
-#include<cstdint>
+#include <cstdint>
 
 namespace ai
 {

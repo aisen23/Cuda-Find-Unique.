@@ -31,7 +31,6 @@ set(CPP_FILES
     src/main.cpp
     src/Utils.cpp
     src/clock/Clock.cpp
-    src/threads/ThreadPool.cpp
 )
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)

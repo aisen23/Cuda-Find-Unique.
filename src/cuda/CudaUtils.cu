@@ -1,22 +1,16 @@
 #include "pch.h"
 
-#include "clock/Clock.h"
 #include "CudaUtils.h"
-#include "threads/ThreadPool.h"
-#include "Utils.h"
+
+#include "clock/Clock.h"
+#include "Constants.h"
 
 #include <cuda_runtime.h>
-#include <device_launch_parameters.h>
+#include <thrust/device_vector.h>
+#include <thrust/sort.h>
 
 namespace ai::cuda
 {
-    __global__ void FindUniquesKernel(int32_t* array_, uint32_t size) {
-        int tid = threadIdx.x + blockIdx.x * blockDim.x;
-        if (tid < size) {
-            array_[tid] += 1;
-        }
-    }
-
     std::vector<int32_t> FindUniquesCPU(const std::vector<int32_t>& src) {
 
         std::unordered_map<int32_t, uint32_t> counter;
@@ -40,55 +34,146 @@ namespace ai::cuda
             result.push_back(*it);
         }
 
+        std::sort(result.begin(), result.end());
+
         return result;
+    }
+
+//=-=-=-=-=-=-=-=-=--=-= GPU -=-=-=-=-=-=-=-=-=--=-=-=-=-=-
+
+    // Wait until neighbors temp will be filled.
+    __device__ void WaitForNeighbors(const uint32_t* blockFlags) {
+        if (blockIdx.x < gridDim.x) {
+            while (!((blockIdx.x == 0 || blockFlags[blockIdx.x - 1])
+                    && (blockIdx.x == blockDim.x - 1 || blockFlags[blockIdx.x + 1])));
+        }
+    }
+
+    __global__ void FindUniquesKernel(int32_t* array_, uint32_t size, uint32_t* blockFlags) {
+        int tid = threadIdx.x + blockIdx.x * blockDim.x;
+
+        __shared__ int32_t temp[ai::CUDA_BLOCK_SIZE];
+
+        bool unique = true;
+
+        if (tid < size) {
+            if (tid > 0) {
+                if (array_[tid] == array_[tid - 1]) {
+                    unique = false;
+                }
+            }
+
+            if (unique && tid < size - 1) {
+                if (array_[tid] == array_[tid + 1]) {
+                    unique = false;
+                }
+            }
+
+            temp[threadIdx.x] = (unique ? array_[tid] : ai::MAX_INT_32);
+        }
+
+        __syncthreads();
+        
+        if (threadIdx.x == 0) {
+            blockFlags[blockIdx.x] = 1;
+        }
+        
+        if (tid < size) {
+            WaitForNeighbors(blockFlags);
+
+            array_[tid] = temp[threadIdx.x];
+        }
+    }
+
+    __global__ void FindUniquesSizeKernel(int32_t* array_, uint32_t size, uint32_t* uSize) {
+        int tid = threadIdx.x + blockIdx.x * blockDim.x;
+
+        if (tid > 0 && tid < size) {
+            if (array_[tid] == ai::MAX_INT_32 && array_[tid - 1] != ai::MAX_INT_32) {
+                *uSize = tid;
+            }
+        }
     }
 
 
     std::vector<int32_t> FindUniquesGPU(const std::vector<int32_t>& src) {
-        uint32_t hostSize= src.size();
-        const int32_t* hostData = src.data();
-        int32_t* deviceData;
+        //Clock clock;
 
-        std::vector<int32_t> result(hostSize);
+        // Preparing Data.
+       // auto preparingTime = clock.Now();
 
-        Clock clock;
-        auto mallocStart = clock.Now();
-        cudaMalloc(&deviceData, hostSize * sizeof(int32_t));
-        std::cout << "Malloc: "; clock.PrintDuration(mallocStart);
+        const uint32_t arraySize = src.size();
+        thrust::device_vector<int32_t> dArray(arraySize);
+        thrust::copy(src.begin(), src.end(), dArray.begin());
 
-        auto memcpyStart = clock.Now();
-        cudaMemcpy(deviceData, hostData, hostSize * sizeof(int32_t), cudaMemcpyHostToDevice);
-        std::cout << "Memcpy: "; clock.PrintDuration(memcpyStart);
-
-        /*size_t numThreads = 20;
-        size_t chunkSize = hostSize / numThreads;
-        std::vector<std::future<void>> futures(numThreads - 1);
-        for (size_t i = 0; i != numThreads - 1; ++i) {
-            futures[i] = ThreadPool::Instance().Submit([deviceData, hostData, chunkSize, i]() {
-                    auto offsettedData = deviceData + chunkSize * i;
-                    cudaMemcpy(offsettedData, hostData + chunkSize * i, chunkSize * sizeof(int32_t), cudaMemcpyHostToDevice);
-            });
+        // Device uniques size.
+        uint32_t* dUSize;
+        auto cudaStatus = cudaMalloc(&dUSize, sizeof(uint32_t));
+        if (cudaStatus != cudaSuccess) {
+            std::cerr << "cudaMalloc failed: " << cudaGetErrorString(cudaStatus) << std::endl;
+            return {};
         }
-        auto offsettedData = deviceData + chunkSize * (numThreads - 1);
-        cudaMemcpy(offsettedData, hostData + chunkSize * (numThreads - 1), chunkSize * sizeof(int32_t), cudaMemcpyHostToDevice);
+        cudaMemset(dUSize, 0, sizeof(uint32_t));
+        if (cudaStatus != cudaSuccess) {
+            std::cerr << "cudaMalloc failed: " << cudaGetErrorString(cudaStatus) << std::endl;
+            cudaFree(dUSize);
+            return {};
+        }
 
-        for (auto& f : futures) {
-            f.wait();
-        }*/
+        // For synchronizing the neighbor blocks.
+        int blockSize = ai::CUDA_BLOCK_SIZE;
+        int gridSize = (arraySize + blockSize - 1) / blockSize;
+        uint32_t* dBlockFlags;
+        cudaStatus = cudaMalloc(&dBlockFlags, gridSize * sizeof(uint32_t));
+        if (cudaStatus != cudaSuccess) {
+            std::cerr << "cudaMalloc failed: " << cudaGetErrorString(cudaStatus) << std::endl;
+            cudaFree(dUSize);
+            return {};
+        }
+        cudaStatus = cudaMemset(dBlockFlags, 0, gridSize * sizeof(uint32_t));
+        if (cudaStatus != cudaSuccess) {
+            std::cerr << "cudaMalloc failed: " << cudaGetErrorString(cudaStatus) << std::endl;
+            cudaFree(dUSize);
+            cudaFree(dBlockFlags);
+            return {};
+        }
 
-        const int size = 10000000;
-        const int blockSize = 1024;
-        const int gridSize = (size + blockSize - 1) / blockSize;
+        //std::cout << "Preparing: "; clock.PrintDuration(preparingTime);
 
-        auto cudaComp = clock.Now();
-        FindUniquesKernel<<<gridSize, blockSize>>>(deviceData, hostSize);
-        std::cout << "CudaComputation: "; clock.PrintDuration(cudaComp);
 
-        auto memcpyFree = clock.Now();
-        cudaMemcpy(result.data(), deviceData, size * sizeof(int32_t), cudaMemcpyDeviceToHost);
-        cudaFree(deviceData);
-        std::cout << "CudaMemcpyFree: "; clock.PrintDuration(memcpyFree);
+        // Computation.
+        //auto compTime = clock.Now();
 
-        return result;
+        thrust::sort(dArray.begin(), dArray.end());
+
+        FindUniquesKernel<<<gridSize, blockSize>>>(thrust::raw_pointer_cast(dArray.data()), arraySize, dBlockFlags);
+        cudaDeviceSynchronize();
+
+        thrust::sort(dArray.begin(), dArray.end());
+
+
+        FindUniquesSizeKernel<<<gridSize, blockSize>>>(thrust::raw_pointer_cast(dArray.data()), arraySize, dUSize);
+        cudaDeviceSynchronize();
+
+        uint32_t uniquesSize;
+        cudaStatus = cudaMemcpy(&uniquesSize, dUSize, sizeof(uint32_t), cudaMemcpyDeviceToHost);
+        if (cudaStatus != cudaSuccess) {
+            std::cerr << "cudaMalloc failed: " << cudaGetErrorString(cudaStatus) << std::endl;
+            cudaFree(dUSize);
+            cudaFree(dBlockFlags);
+            return {};
+        }
+
+        std::vector<int32_t> uniques(uniquesSize);
+        thrust::copy(dArray.begin(), dArray.begin() + uniquesSize, uniques.begin());
+
+        //std::cout << "Computation: "; clock.PrintDuration(compTime);
+
+
+        // Free memory.
+        cudaFree(dUSize);
+        cudaFree(dBlockFlags);
+
+        return uniques;
     }
 }

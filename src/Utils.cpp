@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "Utils.h"
+
 #include "Constants.h"
 
 std::vector<int32_t> ai::utils::GenerateArray(size_t size, unsigned minUnique, unsigned maxUnique) {
@@ -23,18 +24,20 @@ std::vector<int32_t> ai::utils::GenerateArray(size_t size, unsigned minUnique, u
 
 
     // Fill array:
-    std::vector<int32_t> array_(size, ai::INVALID_NUM);
+    std::unordered_set<size_t> uniqueIndexes;
+    std::vector<int32_t> array_(size);
     std::uniform_int_distribution<size_t> indexDist(0, size - 1);
     for (size_t i = 0; i != uSize;) {
         auto index = indexDist(gen);
-        if (array_[index] == ai::INVALID_NUM) {
+        if (uniqueIndexes.find(index) == uniqueIndexes.end()) {
             array_[index] = uniques[i];
+            uniqueIndexes.insert(index);
             ++i;
         } 
     }
 
     for (size_t i = 0, j = 0; i != size && j != nonUniques.size(); ++i) {
-        if (array_[i] == ai::INVALID_NUM) {
+        if (uniqueIndexes.find(i) == uniqueIndexes.end()) {
             array_[i] = nonUniques[j++];
         }
     }
@@ -70,7 +73,7 @@ std::pair<std::vector<int32_t>, std::unordered_set<int32_t>> ai::utils::Generate
 #ifdef DEBUG_BUILD
     auto testU = uniques;
     std::sort(testU.begin(), testU.end());
-    ai::utils::PrintArray("Generated uniques", testU, 5);
+    ai::utils::PrintArray("Generated uniques", testU, 10);
 #endif
 
     return std::make_pair(std::move(uniques), std::move(uniqueSet));
