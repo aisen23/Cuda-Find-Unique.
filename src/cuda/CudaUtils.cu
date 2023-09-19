@@ -41,11 +41,22 @@ namespace ai::cuda
 
 //=-=-=-=-=-=-=-=-=--=-= GPU -=-=-=-=-=-=-=-=-=--=-=-=-=-=-
 
+    __device__ void SetBlockFlag(uint32_t* blockFlags) {
+        int id = blockIdx.x / 32;
+
+        blockFlags[id] |= (1 << (blockIdx.x % 32));
+    }
+
+    __device__ bool IsBlockFlag(unsigned blockId, const uint32_t* blockFlags) {
+        int id = blockId / 32;
+        return (blockFlags[id] & (1 << (blockId % 32)));
+    }
+
     // Wait until neighbors temp will be filled.
     __device__ void WaitForNeighbors(const uint32_t* blockFlags) {
         if (blockIdx.x < gridDim.x) {
-            while (!((blockIdx.x == 0 || blockFlags[blockIdx.x - 1])
-                    && (blockIdx.x == blockDim.x - 1 || blockFlags[blockIdx.x + 1])));
+            while (!((blockIdx.x == 0 || IsBlockFlag(blockIdx.x - 1, blockFlags))
+                    && (blockIdx.x == blockDim.x - 1 || IsBlockFlag(blockIdx.x + 1, blockFlags))));
         }
     }
 
@@ -75,7 +86,7 @@ namespace ai::cuda
         __syncthreads();
         
         if (threadIdx.x == 0) {
-            blockFlags[blockIdx.x] = 1;
+            SetBlockFlag(blockFlags);
         }
         
         if (tid < size) {
@@ -124,13 +135,14 @@ namespace ai::cuda
         int blockSize = ai::CUDA_BLOCK_SIZE;
         int gridSize = (arraySize + blockSize - 1) / blockSize;
         uint32_t* dBlockFlags;
-        cudaStatus = cudaMalloc(&dBlockFlags, gridSize * sizeof(uint32_t));
+        uint32_t blockFlagsSize = (gridSize + 32 - 1) / 32 * sizeof(uint32_t);
+        cudaStatus = cudaMalloc(&dBlockFlags, blockFlagsSize);
         if (cudaStatus != cudaSuccess) {
             std::cerr << "cudaMalloc failed: " << cudaGetErrorString(cudaStatus) << std::endl;
             cudaFree(dUSize);
             return {};
         }
-        cudaStatus = cudaMemset(dBlockFlags, 0, gridSize * sizeof(uint32_t));
+        cudaStatus = cudaMemset(dBlockFlags, 0, blockFlagsSize);
         if (cudaStatus != cudaSuccess) {
             std::cerr << "cudaMalloc failed: " << cudaGetErrorString(cudaStatus) << std::endl;
             cudaFree(dUSize);
